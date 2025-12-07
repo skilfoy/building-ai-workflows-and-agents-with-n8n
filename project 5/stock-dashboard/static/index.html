@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Market & News Intelligence Dashboard</title>
+    <style>
+      :root {
+        font-family: "Inter", system-ui, -apple-system, sans-serif;
+        background: #0b1021;
+        color: #f5f7ff;
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        line-height: 1.5;
+      }
+      header {
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid #1f2745;
+        background: linear-gradient(90deg, #0b1021, #0f1a3a);
+      }
+      h1 {
+        margin: 0 0 0.25rem 0;
+        font-size: 1.8rem;
+      }
+      .subtitle {
+        color: #9fb3ff;
+        margin: 0;
+      }
+      main {
+        padding: 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .grid {
+        display: grid;
+        gap: 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      }
+      .card {
+        background: #0f1733;
+        border: 1px solid #1f2745;
+        border-radius: 12px;
+        padding: 1.25rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      }
+      .card h2 {
+        margin-top: 0;
+        font-size: 1.1rem;
+        letter-spacing: 0.02em;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.95rem;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 0.45rem 0.35rem;
+        border-bottom: 1px solid #1f2745;
+      }
+      th {
+        color: #9fb3ff;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+      }
+      .badge {
+        padding: 0.15rem 0.55rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+      }
+      .badge-positive {
+        background: rgba(46, 204, 113, 0.15);
+        color: #8df2bd;
+        border: 1px solid rgba(46, 204, 113, 0.3);
+      }
+      .badge-negative {
+        background: rgba(235, 87, 87, 0.15);
+        color: #ffc3c3;
+        border: 1px solid rgba(235, 87, 87, 0.25);
+      }
+      .badge-neutral {
+        background: rgba(52, 152, 219, 0.15);
+        color: #a6d7ff;
+        border: 1px solid rgba(52, 152, 219, 0.25);
+      }
+      .news-item {
+        margin-bottom: 0.75rem;
+      }
+      .news-item a {
+        color: #a6d7ff;
+        text-decoration: none;
+      }
+      .news-item a:hover {
+        text-decoration: underline;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .pill {
+        background: #16254d;
+        color: #cdd9ff;
+        padding: 0.35rem 0.65rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+      }
+      button {
+        background: #2563eb;
+        color: #f5f7ff;
+        border: none;
+        border-radius: 8px;
+        padding: 0.65rem 1rem;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      footer {
+        color: #9fb3ff;
+        font-size: 0.85rem;
+        padding: 0 2rem 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="row">
+        <div>
+          <h1>Market & News Intelligence</h1>
+          <p class="subtitle">
+            Informational dashboard that combines major exchange snapshots with global news themes.
+          </p>
+        </div>
+        <div>
+          <button id="refresh">Manual refresh</button>
+        </div>
+      </div>
+      <p class="subtitle" id="updated">Last updated: loading…</p>
+    </header>
+
+    <main>
+      <div class="grid">
+        <section class="card">
+          <h2>Major exchanges</h2>
+          <table id="markets">
+            <thead>
+              <tr>
+                <th>Exchange</th>
+                <th>Last close</th>
+                <th>Change</th>
+                <th>Momentum (30d)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <section class="card">
+          <h2>Recommendations</h2>
+          <div id="recommendations"></div>
+        </section>
+
+        <section class="card">
+          <h2>Global news & themes</h2>
+          <div id="news"></div>
+        </section>
+
+        <section class="card">
+          <h2>Trending keywords</h2>
+          <div id="trends"></div>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <p>
+        This dashboard is for internal research only. It summarizes public market information and news feeds and does
+        not provide investment advice.
+      </p>
+    </footer>
+
+    <script>
+      const marketsTable = document.querySelector('#markets tbody');
+      const newsContainer = document.querySelector('#news');
+      const recsContainer = document.querySelector('#recommendations');
+      const trendsContainer = document.querySelector('#trends');
+      const refreshButton = document.querySelector('#refresh');
+      const updatedLabel = document.querySelector('#updated');
+
+      const badgeForChange = (value) => {
+        if (value > 0.2) return 'badge badge-positive';
+        if (value < -0.2) return 'badge badge-negative';
+        return 'badge badge-neutral';
+      };
+
+      function renderMarkets(markets) {
+        marketsTable.innerHTML = '';
+        markets.forEach((row) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${row.exchange} <span class="pill">${row.symbol}</span></td>
+            <td>${row.price.toLocaleString()} (${row.last_close})</td>
+            <td><span class="${badgeForChange(row.change_pct)}">${row.change.toFixed(2)} (${row.change_pct.toFixed(2)}%)</span></td>
+            <td>${row.momentum_30d.toFixed(2)}%</td>
+          `;
+          marketsTable.appendChild(tr);
+        });
+      }
+
+      function renderNews(news) {
+        newsContainer.innerHTML = '';
+        news.forEach((item) => {
+          const div = document.createElement('div');
+          div.classList.add('news-item');
+          const published = item.published ? new Date(item.published).toLocaleString() : 'Unpublished';
+          div.innerHTML = `<strong>${item.source}</strong> — <a href="${item.link}" target="_blank">${item.title}</a><br/><span>${published}</span>`;
+          newsContainer.appendChild(div);
+        });
+      }
+
+      function renderRecommendations(recs) {
+        recsContainer.innerHTML = '';
+        recs.forEach((rec) => {
+          const div = document.createElement('div');
+          div.classList.add('news-item');
+          div.innerHTML = `
+            <div class="row">
+              <strong>${rec.market}</strong><span class="pill">${rec.symbol}</span>
+            </div>
+            <div class="subtitle">${rec.stance}</div>
+            <div>${rec.action}</div>
+            <div class="subtitle">${rec.note}</div>
+          `;
+          recsContainer.appendChild(div);
+        });
+      }
+
+      function renderTrends(trends) {
+        trendsContainer.innerHTML = '';
+        if (!trends.keywords || trends.keywords.length === 0) {
+          trendsContainer.textContent = 'No keywords available yet.';
+          return;
+        }
+        trends.keywords.forEach(([word, count]) => {
+          const div = document.createElement('div');
+          div.textContent = `${word} • ${count} mentions`;
+          trendsContainer.appendChild(div);
+        });
+      }
+
+      async function fetchData(manual = false) {
+        refreshButton.disabled = true;
+        refreshButton.textContent = manual ? 'Refreshing…' : 'Syncing…';
+        try {
+          const endpoint = manual ? '/api/refresh' : '/api/summary';
+          const response = await fetch(endpoint, { method: manual ? 'POST' : 'GET' });
+          if (!response.ok) throw new Error('Failed to load dashboard data');
+          const payload = await response.json();
+          renderMarkets(payload.markets);
+          renderNews(payload.news);
+          renderRecommendations(payload.recommendations);
+          renderTrends(payload.trends);
+          updatedLabel.textContent = `Last updated: ${new Date(payload.last_updated).toLocaleString()}`;
+        } catch (error) {
+          updatedLabel.textContent = `Error: ${error.message}`;
+        } finally {
+          refreshButton.disabled = false;
+          refreshButton.textContent = 'Manual refresh';
+        }
+      }
+
+      refreshButton.addEventListener('click', () => fetchData(true));
+      fetchData();
+      setInterval(fetchData, 15 * 60 * 1000);
+    </script>
+  </body>
+</html>
